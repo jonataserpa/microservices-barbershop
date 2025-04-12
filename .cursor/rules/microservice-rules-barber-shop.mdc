@@ -1,0 +1,240 @@
+---
+description: 
+globs: 
+---
+# Microservice Rules: Barber Shop
+
+Este documento descreve as regras e diretrizes para o desenvolvimento, organização, testes e deploy do projeto **App Web Barber Shop**. As diretrizes abrangem as camadas de **Backend**, **Frontend** e **DevOps**, definindo padrões para um desenvolvimento consistente e escalável.
+
+---
+
+## 1. Regras Gerais do Projeto
+
+- **Estrutura Modular e Organizada:**  
+  - Separar o projeto em três pastas principais: `backend`, `frontend` e `devops`.
+  - Cada pasta deve conter sua própria estrutura de código, documentação e testes.
+
+- **Documentação e Versionamento:**  
+  - Manter documentação clara de endpoints, regras de negócio, DTOs e testes.
+  - Utilizar Git com commits frequentes e mensagens descritivas.
+
+- **Tratamento de Erros e Logs:**  
+  - Implementar middlewares e interceptors para captação e tratamento de erros (400, 404, 500) de forma consistente.
+
+- **Validação de Dados:**  
+  - Utilizar DTOs e/ou middlewares para validação das informações de entrada, garantindo integridade e segurança.
+
+---
+
+## 2. Regras e Diretrizes para o Backend
+
+### 2.1. Stack e Arquitetura
+
+- **Tecnologia:**  
+  - Utilizar **Bun.js com TypeScript**.
+  
+- **Arquitetura:**  
+  - Seguir **Clean Architecture** e **Domain Driven Design (DDD)**.
+  - Dividir a aplicação nas seguintes camadas:
+    - **Domínio:** Entidades (e regras de negócio) que modelam o problema.
+    - **UseCase:** Casos de uso que orquestram as operações, acionando as regras do domínio.
+    - **Interfaces para UseCase:** Exposição dos casos de uso para os controllers.
+    - **Repository:** Camada de acesso a dados, implementada sobre o PostgreSQL utilizando o ORM Prisma.
+    - **Interfaces para Repository:** Contratos que definem a persistência dos dados.
+
+### 2.2. Estrutura de Endpoints e Pastas
+
+- **Endpoints a serem implementados:**
+  - `/scheduling`
+  - `/customers`
+  - `/services`
+  - `/reports`
+  - `/dashboard`
+  - `/login` (com autenticação JWT)
+
+- **Controllers e DTOs:**
+  - Cada controller deve receber os dados de entrada (ou utilizar middlewares) e validá-los através de DTOs.
+  - Cada controller invoca o usecase correspondente para orquestrar a operação de domínio.
+
+### 2.3. Regras de Negócio (Domínio)
+
+#### Scheduling (Agendamentos)
+- **Regra 1:**  
+  - Não permitir agendar um novo horário se já existir um agendamento com status **confirmado** para o mesmo horário.
+- **Regra 2:**  
+  - Bloquear agendamentos em datas que coincidam com feriados do ano.
+- **Regra 3:**  
+  - Permitir agendamento apenas com, no mínimo, uma semana de antecedência ou em casos de desistência.
+- **Regra 4:**  
+  - Pagamento somente online. Se o agendamento for confirmado e o cliente não comparecer, não haverá reembolso.
+
+#### Services (Serviços)
+- **Regra 1:**  
+  - Definir preços diferenciados conforme o tipo de serviço/ combo:
+    - **Corte + Barba:** R$75,00
+    - **Apenas Corte:** R$45,00
+    - **Apenas Barba:** R$50,00  
+  - Se ambos os serviços forem escolhidos, aplicar o valor do combo (R$75,00).
+
+#### Customers (Clientes)
+- **Regra 1:**  
+  - Não realizar corte para crianças menores de 3 anos.
+- **Regra 2:**  
+  - Não atender clientes com alergia de pele (informação a ser identificada no cadastro).
+
+#### Report (Relatórios)
+- **Relatórios devem agregar:**
+  - Totais dos agendamentos do dia (por status).
+  - Total de clientes cadastrados.
+  - Faturamento mensal.
+
+### 2.4. Fluxo de Inicialização
+
+- **Função Main:**  
+  - Criar uma função principal responsável por:
+    - Instanciar o controlador principal (que utiliza DTOs/middlewares para validação).
+    - Invocar os usecases que orquestram as operações do domínio.
+
+### 2.5. Testes
+
+- **Testes Unitários:**  
+  - Desenvolver testes para as regras do domínio (por exemplo, restrições de agendamento, cálculo de preços).
+- **Testes de Integração:**  
+  - Validar a comunicação entre os usecases e os repositórios.
+- **Testes E2E (End-to-End):**  
+  - Implementar testes para a API REST, garantindo que os endpoints funcionem conforme esperado.
+
+---
+
+## 3. Regras e Diretrizes para o Frontend
+
+### 3.1. Stack e Arquitetura
+
+- **Tecnologias:**  
+  - Desenvolver o app com **Next.js** e **React.js**.
+
+- **Organização em Camadas:**
+  - **UI:** Utilizar **Radix UI** para componentes.
+  - **Icons:** Utilizar **Lucide-react**.
+  - **CSS:** Utilizar **Tailwind CSS** com foco em responsividade e mobile-first.
+  - **Validação:** Utilizar **useForm** junto com **Zod** para validação de formulários.
+  - **Gerenciamento de Estado:** Utilizar **Zustand** para gerenciar estados globais.
+  - **Serviços da API:** Criar uma camada de `ServiceGateway` com os métodos:
+    - `getAll`, `create`, `getById`, `updateById`, `deleteById`.
+
+### 3.2. Organização de Pastas
+
+- **Pasta `app`:**  
+  - Estruturar as páginas por rotas (ex.: `dashboard`, `scheduling`, etc.), com subpastas para:
+    - **interfaces**
+    - **services**
+    - **testes (__tests__)**
+  - Cada rota terá seu próprio arquivo `page.tsx`.
+
+- **Pasta `components`:**
+  - Componentes reutilizáveis e configuração de client (Axios ou fetch) com interceptors para:
+    - Autenticação (ex.: `auth.interceptors.ts`)
+    - Tratamento de erros (ex.: `error.interceptors.ts`)
+  - Outras pastas:
+    - `/enviroments` para configurações de ambiente.
+    - `/hooks` contendo hooks como `useDebounce`, `useModalStore`, `usePagination`.
+    - `/modals` para modais como `create-service-modal.tsx`, `create-scheduling.tsx`, `create-customer.tsx`.
+
+### 3.3. Tratamento de Erros
+
+- **Interceptors/Middlewares:**
+  - Implementar interceptors para capturar e tratar erros da API (ex.: 400, 404, 500) e apresentar mensagens amigáveis ao usuário.
+
+### 3.4. Testes
+
+- **Testes Unitários:**  
+  - Usar Jest para teste dos componentes e lógica de negócio.
+- **Testes E2E:**  
+  - Utilizar Cypress para simular cenários reais e testar a integração completa do app.
+
+### 3.5. Docker e Gerenciamento
+
+- **Docker e docker-compose:**
+  - Configurar o projeto com Docker e docker-compose para facilitar o desenvolvimento e deploy.
+- **Hooks Personalizados e Organização:**
+  - Criar hooks personalizados (ex.: `useDebounce`) e organizar constantes e componentes de forma modular.
+
+---
+
+## 4. Regras e Diretrizes para DevOps
+
+### 4.1. Infraestrutura e Orquestração
+
+- **Hospedagem:**
+  - Utilizar VPS da Hostinger com Portainer para gerenciamento dos containers.
+- **Docker Swarm:**
+  - Usar um arquivo `docker-swarm.yml` baseado na versão "3.8".
+  - Configurar os serviços, redes, portas e variáveis de ambiente.
+  - Definir estratégias de deploy como *rolling update* e políticas de reinício.
+
+### 4.2. CI/CD com GitHub Actions
+
+- **Workflow de Deploy:**
+  - **Checkout:** Fazer o checkout do repositório.
+  - **Configuração SSH:** Configurar acesso via SSH à VPS.
+  - **Build e Push:**  
+    - Construa as imagens Docker para cada serviço (ex.: `api-barbersho`, `next-barbershop`, etc.).
+    - Utilizar tags dinâmicas (ex.: baseadas no commit SHA) para as imagens e fazer push para o Docker Hub.
+  - **Atualização do `docker-swarm.yml`:**
+    - Atualizar as tags de imagem dinamicamente usando scripts.
+  - **Upload e Deploy:**
+    - Enviar o arquivo atualizado para a VPS via SCP.
+    - Realizar o deploy com Docker Swarm utilizando a estratégia *rolling update*.
+
+### 4.3. Segurança e Gerenciamento de Segredos
+
+- **Variáveis de Ambiente:**
+  - Utilizar secrets para armazenar credenciais sensíveis (ex.: SSH keys, Docker Hub, banco de dados).
+- **Acesso Seguro:**
+  - Garantir conexões seguras (SSH, HTTPS) para todas as operações de deploy e acesso à infraestrutura.
+
+---
+
+## 5. Resumo das Regras para o Cursor IA
+
+Para que o **Cursor IA** auxilie no desenvolvimento e manutenção do projeto, as seguintes regras devem ser consideradas:
+
+1. **Regras de Domínio e Negócio:**
+   - **Scheduling:**  
+     - Impedir conflitos de agendamento (não agendar quando já existe um horário com status confirmado).  
+     - Bloquear agendamentos em feriados.  
+     - Exigir agendamento com, pelo menos, uma semana de antecedência ou em casos de desistência.  
+     - Pagamento apenas online, sem reembolso em caso de não comparecimento.
+   - **Services:**  
+     - Aplicar preços diferenciados conforme o combo de serviços (combo, apenas corte ou apenas barba).
+   - **Customers:**  
+     - Não realizar cortes para crianças com menos de 3 anos.  
+     - Impedir atendimento de clientes com alergia de pele.
+   - **Report:**  
+     - Agregar dados diários de agendamentos, clientes e faturamento.
+
+2. **Organização Arquitetural (Backend):**
+   - Uso de **Bun.js** com **TypeScript**.
+   - Separação em camadas: Domínio, UseCase, Interfaces (usecase e repository), Repository.
+   - Utilização do PostgreSQL com ORM (Prisma).
+   - Implementação de DTOs, middlewares e função `main` para orquestração.
+
+3. **Estrutura e Boas Práticas no Frontend:**
+   - Projeto utilizando **Next.js** e **React.js**, com uma estrutura organizada (rotas, componentes, hooks, services).
+   - Uso de bibliotecas modernas como Radix UI, Lucide-react, Tailwind CSS, useForm/Zod e Zustand.
+   - Implementação de configuração de client (Axios ou fetch) com interceptors para autenticação e tratamento de erros.
+   - Criação de testes unitários (Jest) e testes E2E (Cypress).
+
+4. **Automação e Deploy (DevOps):**
+   - Implementação com Docker Swarm em uma VPS (Hostinger) gerenciada via Portainer.
+   - Utilização de GitHub Actions para CI/CD com steps para checkout, build, push, atualização dinâmica do `docker-swarm.yml` e deploy (rolling update).
+   - Gerenciamento seguro de segredos (SSH keys, Docker Hub, etc.).
+
+5. **Testes e Qualidade de Código:**
+   - Testes unitários para o domínio e integração nos usecases.
+   - Testes E2E para a API REST e a interface do usuário.
+   - Uso de linting, formatação e revisões de código contínuas.
+
+---
+
+Este conjunto de regras tem como objetivo garantir que o projeto **Barber Shop** seja desenvolvido de forma robusta, escalável e segura, integrando as melhores práticas em arquitetura, design, testes e deploy.
