@@ -3,6 +3,7 @@ import { scheduleRoutes } from "./scheduleRoutes";
 import { customerRoutes } from "./customerRoutes";
 import { serviceRoutes } from "./serviceRoutes";
 import { userRoutes } from "./userRoutes";
+import { barberRoutes } from "./barberRoutes";
 
 const routes = Router();
 
@@ -17,5 +18,8 @@ routes.use("/services", serviceRoutes);
 
 // Rotas para usuários
 routes.use("/users", userRoutes);
+
+// Rotas para barbeiros
+routes.use("/barbers", barberRoutes);
 
 export { routes }; 
