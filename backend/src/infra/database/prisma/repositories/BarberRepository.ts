@@ -1,4 +1,4 @@
-import { Barber, BarberWithUser, CreateBarberDTO, UpdateBarberDTO } from "../../../../domain/entities/Barber";
+import { Barber, BarberData, BarberWithUser, CreateBarberDTO, UpdateBarberDTO } from "../../../../domain/entities/Barber";
 import { UserRole, UserWithoutPassword } from "../../../../domain/entities/User";
 import { IBarberRepository } from "../../../../domain/repositories/IBarberRepository";
 import { prisma } from "../prismaClient";
@@ -28,7 +28,7 @@ export class BarberRepository implements IBarberRepository {
     }));
   }
 
-  async findById(id: string): Promise<BarberWithUser | null> {
+  async findById(id: string): Promise<Barber | null> {
     const barber = await prisma.barber.findUnique({
       where: { id },
       include: {
@@ -38,24 +38,27 @@ export class BarberRepository implements IBarberRepository {
 
     if (!barber) return null;
 
-    return {
+    const userData: UserWithoutPassword = {
+      id: barber.user.id,
+      name: barber.user.name,
+      email: barber.user.email,
+      role: this.mapUserRole(barber.user.role),
+      createdAt: barber.user.createdAt,
+      updatedAt: barber.user.updatedAt,
+    };
+
+    const barberData: BarberData = {
       id: barber.id,
       userId: barber.userId,
       specialty: barber.specialty || undefined,
       createdAt: barber.createdAt,
-      updatedAt: barber.updatedAt,
-      user: {
-        id: barber.user.id,
-        name: barber.user.name,
-        email: barber.user.email,
-        role: this.mapUserRole(barber.user.role),
-        createdAt: barber.user.createdAt,
-        updatedAt: barber.user.updatedAt,
-      }
+      updatedAt: barber.updatedAt
     };
+
+    return Barber.create(barberData, userData);
   }
 
-  async findByUserId(userId: string): Promise<BarberWithUser | null> {
+  async findByUserId(userId: string): Promise<Barber | null> {
     const barber = await prisma.barber.findUnique({
       where: { userId },
       include: {
@@ -65,21 +68,24 @@ export class BarberRepository implements IBarberRepository {
 
     if (!barber) return null;
 
-    return {
+    const userData: UserWithoutPassword = {
+      id: barber.user.id,
+      name: barber.user.name,
+      email: barber.user.email,
+      role: this.mapUserRole(barber.user.role),
+      createdAt: barber.user.createdAt,
+      updatedAt: barber.user.updatedAt,
+    };
+
+    const barberData: BarberData = {
       id: barber.id,
       userId: barber.userId,
       specialty: barber.specialty || undefined,
       createdAt: barber.createdAt,
-      updatedAt: barber.updatedAt,
-      user: {
-        id: barber.user.id,
-        name: barber.user.name,
-        email: barber.user.email,
-        role: this.mapUserRole(barber.user.role),
-        createdAt: barber.user.createdAt,
-        updatedAt: barber.user.updatedAt,
-      }
+      updatedAt: barber.updatedAt
     };
+
+    return Barber.create(barberData, userData);
   }
 
   async create(data: CreateBarberDTO): Promise<Barber> {
@@ -93,21 +99,24 @@ export class BarberRepository implements IBarberRepository {
       }
     });
 
-    return {
+    const userData = barber.user ? {
+      id: barber.user.id,
+      name: barber.user.name,
+      email: barber.user.email,
+      role: this.mapUserRole(barber.user.role),
+      createdAt: barber.user.createdAt,
+      updatedAt: barber.user.updatedAt,
+    } : undefined;
+
+    const barberData: BarberData = {
       id: barber.id,
       userId: barber.userId,
       specialty: barber.specialty || undefined,
       createdAt: barber.createdAt,
-      updatedAt: barber.updatedAt,
-      user: barber.user ? {
-        id: barber.user.id,
-        name: barber.user.name,
-        email: barber.user.email,
-        role: this.mapUserRole(barber.user.role),
-        createdAt: barber.user.createdAt,
-        updatedAt: barber.user.updatedAt,
-      } : undefined
+      updatedAt: barber.updatedAt
     };
+
+    return Barber.create(barberData, userData);
   }
 
   async update(id: string, data: UpdateBarberDTO): Promise<Barber> {
@@ -121,21 +130,24 @@ export class BarberRepository implements IBarberRepository {
       }
     });
 
-    return {
+    const userData = barber.user ? {
+      id: barber.user.id,
+      name: barber.user.name,
+      email: barber.user.email,
+      role: this.mapUserRole(barber.user.role),
+      createdAt: barber.user.createdAt,
+      updatedAt: barber.user.updatedAt,
+    } : undefined;
+
+    const barberData: BarberData = {
       id: barber.id,
       userId: barber.userId,
       specialty: barber.specialty || undefined,
       createdAt: barber.createdAt,
-      updatedAt: barber.updatedAt,
-      user: barber.user ? {
-        id: barber.user.id,
-        name: barber.user.name,
-        email: barber.user.email,
-        role: this.mapUserRole(barber.user.role),
-        createdAt: barber.user.createdAt,
-        updatedAt: barber.user.updatedAt,
-      } : undefined
+      updatedAt: barber.updatedAt
     };
+
+    return Barber.create(barberData, userData);
   }
 
   async delete(id: string): Promise<void> {

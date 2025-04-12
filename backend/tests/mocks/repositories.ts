@@ -3,10 +3,10 @@ import { ICustomerRepository } from "../../src/domain/repositories/ICustomerRepo
 import { IServiceRepository } from "../../src/domain/repositories/IServiceRepository";
 import { IBarberRepository } from "../../src/domain/repositories/IBarberRepository";
 import { IUserRepository } from "../../src/domain/repositories/IUserRepository";
-import { Customer, CustomerWithUser } from "../../src/domain/entities/Customer";
+import { Customer, CustomerData, CustomerWithUser, CreateCustomerDTO } from "../../src/domain/entities/Customer";
 import { User, UserRole } from "../../src/domain/entities/User";
-import { Service, ServiceType } from "../../src/domain/entities/Service";
-import { Schedule, ScheduleStatus, ScheduleWithRelations } from "../../src/domain/entities/Schedule";
+import { Service, ServiceData, ServiceType } from "../../src/domain/entities/Service";
+import { Schedule, ScheduleData, ScheduleStatus, ScheduleWithRelations } from "../../src/domain/entities/Schedule";
 import { Barber, BarberWithUser } from "../../src/domain/entities/Barber";
 
 // Mock de usuário para testes
@@ -20,14 +20,23 @@ export const mockUser: User = {
   updatedAt: new Date()
 };
 
-// Mock de cliente para testes
-export const mockCustomerWithUser: CustomerWithUser = {
+// Dados de mock para cliente
+export const mockCustomerData: CustomerData = {
   id: "customer-1",
   userId: "user-1",
   birthDate: new Date("1990-01-01"),
   hasAllergy: false,
   createdAt: new Date(),
   updatedAt: new Date(),
+  user: mockUser
+};
+
+// Mock de cliente usando a classe Customer
+export const mockCustomer = Customer.create(mockCustomerData, mockUser);
+
+// Adicionando uma versão do Customer com User para uso nas relações
+export const mockCustomerWithUser: CustomerWithUser = {
+  ...mockCustomer,
   user: mockUser
 };
 
@@ -46,8 +55,8 @@ export const mockBarberWithUser: BarberWithUser = {
   }
 };
 
-// Mock de serviço para testes
-export const mockServices: Service[] = [
+// Dados de mock para serviços
+export const mockServiceData: ServiceData[] = [
   {
     id: "service-1",
     name: "Corte de Cabelo",
@@ -90,8 +99,11 @@ export const mockServices: Service[] = [
   }
 ];
 
-// Mock de agendamento para testes
-export const mockSchedule: Schedule = {
+// Mock de serviços usando a classe Service
+export const mockServices: Service[] = mockServiceData.map(data => Service.create(data));
+
+// Dados de mock para agendamento
+export const mockScheduleData: ScheduleData = {
   id: "schedule-1",
   customerId: "customer-1",
   barberId: "barber-1",
@@ -100,6 +112,9 @@ export const mockSchedule: Schedule = {
   createdAt: new Date(),
   updatedAt: new Date()
 };
+
+// Mock de agendamento usando a classe Schedule
+export const mockSchedule = Schedule.create(mockScheduleData);
 
 // Mock do repositório de usuários
 export class MockUserRepository implements IUserRepository {
@@ -150,30 +165,31 @@ export class MockUserRepository implements IUserRepository {
 
 // Mock do repositório de clientes
 export class MockCustomerRepository implements ICustomerRepository {
-  customers: CustomerWithUser[] = [mockCustomerWithUser];
+  customers: Customer[] = [mockCustomer];
 
-  async findAll(): Promise<CustomerWithUser[]> {
+  async findAll(): Promise<Customer[]> {
     return this.customers;
   }
 
-  async findById(id: string): Promise<CustomerWithUser | null> {
+  async findById(id: string): Promise<Customer | null> {
     return this.customers.find(customer => customer.id === id) || null;
   }
 
-  async findByUserId(userId: string): Promise<CustomerWithUser | null> {
+  async findByUserId(userId: string): Promise<Customer | null> {
     return this.customers.find(customer => customer.userId === userId) || null;
   }
 
-  async create(data: any): Promise<Customer> {
-    const newCustomer: CustomerWithUser = {
+  async create(data: CreateCustomerDTO): Promise<Customer> {
+    const customerData: CustomerData = {
       id: `customer-${this.customers.length + 1}`,
       userId: data.userId,
       birthDate: data.birthDate,
       hasAllergy: data.hasAllergy || false,
       createdAt: new Date(),
-      updatedAt: new Date(),
-      user: mockUser // simplificação para testes
+      updatedAt: new Date()
     };
+    
+    const newCustomer = Customer.create(customerData, mockUser); // simplificação para testes
     this.customers.push(newCustomer);
     return newCustomer;
   }
@@ -182,7 +198,17 @@ export class MockCustomerRepository implements ICustomerRepository {
     const index = this.customers.findIndex(customer => customer.id === id);
     if (index === -1) throw new Error("Cliente não encontrado");
     
-    const updatedCustomer = { ...this.customers[index], ...data, updatedAt: new Date() };
+    const existingCustomer = this.customers[index];
+    const customerData: CustomerData = {
+      id: existingCustomer.id,
+      userId: existingCustomer.userId,
+      birthDate: data.birthDate || existingCustomer.birthDate,
+      hasAllergy: data.hasAllergy !== undefined ? data.hasAllergy : existingCustomer.hasAllergy,
+      createdAt: existingCustomer.createdAt,
+      updatedAt: new Date()
+    };
+    
+    const updatedCustomer = Customer.create(customerData, mockUser);
     this.customers[index] = updatedCustomer;
     return updatedCustomer;
   }
@@ -268,7 +294,7 @@ export class MockServiceRepository implements IServiceRepository {
   }
 
   async create(data: any): Promise<Service> {
-    const newService: Service = {
+    const serviceData: ServiceData = {
       id: `service-${this.services.length + 1}`,
       name: data.name,
       description: data.description,
@@ -278,6 +304,8 @@ export class MockServiceRepository implements IServiceRepository {
       createdAt: new Date(),
       updatedAt: new Date()
     };
+    
+    const newService = Service.create(serviceData);
     this.services.push(newService);
     return newService;
   }
@@ -286,7 +314,19 @@ export class MockServiceRepository implements IServiceRepository {
     const index = this.services.findIndex(service => service.id === id);
     if (index === -1) throw new Error("Serviço não encontrado");
     
-    const updatedService = { ...this.services[index], ...data, updatedAt: new Date() };
+    const existingService = this.services[index];
+    const serviceData: ServiceData = {
+      id: existingService.id,
+      name: data.name || existingService.name,
+      description: data.description || existingService.description,
+      price: data.price || existingService.price,
+      duration: data.duration || existingService.duration,
+      type: data.type || existingService.type,
+      createdAt: existingService.createdAt,
+      updatedAt: new Date()
+    };
+    
+    const updatedService = Service.create(serviceData);
     this.services[index] = updatedService;
     return updatedService;
   }
@@ -304,8 +344,15 @@ export class MockScheduleRepository implements IScheduleRepository {
   schedules: Schedule[] = [mockSchedule];
 
   async findAll(): Promise<ScheduleWithRelations[]> {
+    // As relações não estão completamente implementadas nos mocks
     return this.schedules.map(schedule => ({
-      ...schedule,
+      id: schedule.id,
+      customerId: schedule.customerId,
+      barberId: schedule.barberId,
+      date: schedule.date,
+      status: schedule.status,
+      createdAt: schedule.createdAt,
+      updatedAt: schedule.updatedAt,
       customer: mockCustomerWithUser,
       barber: mockBarberWithUser,
       services: []
@@ -317,7 +364,13 @@ export class MockScheduleRepository implements IScheduleRepository {
     if (!schedule) return null;
     
     return {
-      ...schedule,
+      id: schedule.id,
+      customerId: schedule.customerId,
+      barberId: schedule.barberId,
+      date: schedule.date,
+      status: schedule.status,
+      createdAt: schedule.createdAt,
+      updatedAt: schedule.updatedAt,
       customer: mockCustomerWithUser,
       barber: mockBarberWithUser,
       services: []
@@ -328,7 +381,13 @@ export class MockScheduleRepository implements IScheduleRepository {
     return this.schedules
       .filter(schedule => schedule.customerId === customerId)
       .map(schedule => ({
-        ...schedule,
+        id: schedule.id,
+        customerId: schedule.customerId,
+        barberId: schedule.barberId,
+        date: schedule.date,
+        status: schedule.status,
+        createdAt: schedule.createdAt,
+        updatedAt: schedule.updatedAt,
         customer: mockCustomerWithUser,
         barber: mockBarberWithUser,
         services: []
@@ -339,7 +398,13 @@ export class MockScheduleRepository implements IScheduleRepository {
     return this.schedules
       .filter(schedule => schedule.barberId === barberId)
       .map(schedule => ({
-        ...schedule,
+        id: schedule.id,
+        customerId: schedule.customerId,
+        barberId: schedule.barberId,
+        date: schedule.date,
+        status: schedule.status,
+        createdAt: schedule.createdAt,
+        updatedAt: schedule.updatedAt,
         customer: mockCustomerWithUser,
         barber: mockBarberWithUser,
         services: []
@@ -352,7 +417,13 @@ export class MockScheduleRepository implements IScheduleRepository {
     return this.schedules
       .filter(schedule => schedule.date.toDateString() === dateString)
       .map(schedule => ({
-        ...schedule,
+        id: schedule.id,
+        customerId: schedule.customerId,
+        barberId: schedule.barberId,
+        date: schedule.date,
+        status: schedule.status,
+        createdAt: schedule.createdAt,
+        updatedAt: schedule.updatedAt,
         customer: mockCustomerWithUser,
         barber: mockBarberWithUser,
         services: []
@@ -373,7 +444,7 @@ export class MockScheduleRepository implements IScheduleRepository {
   }
 
   async create(data: any): Promise<Schedule> {
-    const newSchedule: Schedule = {
+    const scheduleData: ScheduleData = {
       id: `schedule-${this.schedules.length + 1}`,
       customerId: data.customerId,
       barberId: data.barberId,
@@ -382,6 +453,8 @@ export class MockScheduleRepository implements IScheduleRepository {
       createdAt: new Date(),
       updatedAt: new Date()
     };
+    
+    const newSchedule = Schedule.create(scheduleData);
     this.schedules.push(newSchedule);
     return newSchedule;
   }
@@ -390,11 +463,18 @@ export class MockScheduleRepository implements IScheduleRepository {
     const index = this.schedules.findIndex(schedule => schedule.id === id);
     if (index === -1) throw new Error("Agendamento não encontrado");
     
-    const updatedSchedule = { 
-      ...this.schedules[index], 
-      ...data, 
-      updatedAt: new Date() 
+    const existingSchedule = this.schedules[index];
+    const scheduleData: ScheduleData = {
+      id: existingSchedule.id,
+      customerId: existingSchedule.customerId,
+      barberId: existingSchedule.barberId,
+      date: data.date || existingSchedule.date,
+      status: data.status || existingSchedule.status,
+      createdAt: existingSchedule.createdAt,
+      updatedAt: new Date()
     };
+    
+    const updatedSchedule = Schedule.create(scheduleData);
     this.schedules[index] = updatedSchedule;
     return updatedSchedule;
   }

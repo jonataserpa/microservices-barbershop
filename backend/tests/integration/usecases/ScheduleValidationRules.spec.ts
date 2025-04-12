@@ -1,12 +1,12 @@
 import { CreateScheduleUseCase } from "../../../src/domain/usecases/schedule/CreateScheduleUseCase";
-import { MockCustomerRepository, MockScheduleRepository, MockServiceRepository } from "../../mocks/repositories";
-import { isHoliday } from "../../../src/utils/dateUtils";
-import { CustomerWithUser } from "../../../src/domain/entities/Customer";
-import { ScheduleStatus } from "../../../src/domain/entities/Schedule";
+import { MockCustomerRepository, MockScheduleRepository, MockServiceRepository, mockServices } from "../../mocks/repositories";
+import * as dateUtils from "../../../src/utils/dateUtils";
+import { Customer, CustomerWithUser } from "../../../src/domain/entities/Customer";
+import { Schedule, ScheduleStatus } from "../../../src/domain/entities/Schedule";
+import { Service, ServiceType } from "../../../src/domain/entities/Service";
 
-jest.mock("../../../src/utils/dateUtils", () => ({
-  isHoliday: jest.fn().mockReturnValue(false)
-}));
+// Em vez de substituir a função, vamos criar um spy para controlar seu comportamento
+const isHolidaySpy = jest.spyOn(dateUtils, 'isHoliday').mockReturnValue(false);
 
 /**
  * Teste de integração para validar as regras de negócio relacionadas aos agendamentos
@@ -30,6 +30,30 @@ describe("Regras de Negócio para Agendamentos", () => {
     mockCustomerRepository = new MockCustomerRepository();
     mockServiceRepository = new MockServiceRepository();
 
+    // Configura o mock para sempre encontrar os serviços solicitados
+    jest.spyOn(mockServiceRepository, "findByIds").mockImplementation(
+      (ids: string[]): Promise<Service[]> => {
+        // Para cada ID na lista, cria ou recupera um serviço correspondente
+        const services = ids.map(id => {
+          const existingService = mockServiceRepository.services.find(s => s.id === id);
+          if (existingService) return existingService;
+
+          // Se o serviço não existe, criamos um novo objeto Service com o ID solicitado
+          return Service.create({
+            id: id,
+            name: "Serviço Temporário",
+            description: "Criado para teste",
+            price: 50,
+            duration: 30,
+            type: ServiceType.OTHER,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          });
+        });
+        return Promise.resolve(services);
+      }
+    );
+
     // Cria a instância do caso de uso
     createScheduleUseCase = new CreateScheduleUseCase(
       mockScheduleRepository,
@@ -38,8 +62,13 @@ describe("Regras de Negócio para Agendamentos", () => {
     );
 
     // Reseta o mock da função isHoliday
-    (isHoliday as jest.Mock).mockClear();
-    (isHoliday as jest.Mock).mockReturnValue(false);
+    jest.clearAllMocks();
+    isHolidaySpy.mockReturnValue(false);
+  });
+
+  afterAll(() => {
+    // Restaura todos os mocks
+    jest.restoreAllMocks();
   });
 
   // Testes de casos inválidos
@@ -47,7 +76,7 @@ describe("Regras de Negócio para Agendamentos", () => {
     // Teste para a regra: Não agendar em feriados
     it("1. Não deve permitir agendamento em feriados", async () => {
       // Configura o mock para simular um feriado
-      (isHoliday as jest.Mock).mockReturnValue(true);
+      isHolidaySpy.mockReturnValue(true);
       
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 10);
@@ -88,18 +117,19 @@ describe("Regras de Negócio para Agendamentos", () => {
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 10);
       
+      // Criamos um Schedule real em vez de apenas um objeto similar
+      const conflictingSchedule = Schedule.create({
+        id: "existing-schedule",
+        customerId: "another-customer",
+        barberId: "barber-1",
+        date: futureDate,
+        status: ScheduleStatus.CONFIRMED,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+      
       // Simula um agendamento existente
-      jest.spyOn(mockScheduleRepository, "findConflictingSchedules").mockResolvedValue([
-        {
-          id: "existing-schedule",
-          customerId: "another-customer",
-          barberId: "barber-1",
-          date: futureDate,
-          status: ScheduleStatus.CONFIRMED,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        }
-      ]);
+      jest.spyOn(mockScheduleRepository, "findConflictingSchedules").mockResolvedValue([conflictingSchedule]);
       
       const scheduleData = {
         customerId: "customer-1",
@@ -115,11 +145,16 @@ describe("Regras de Negócio para Agendamentos", () => {
 
     // Teste para a regra: Não atender clientes com alergia de pele
     it("4. Não deve permitir agendamento para clientes com alergia de pele", async () => {
-      // Cria um mock de cliente com alergia
-      const customerWithAllergy: CustomerWithUser = {
-        ...mockCustomerRepository.customers[0],
-        hasAllergy: true
-      };
+      // Criamos um cliente real com alergia
+      const baseCustomer = mockCustomerRepository.customers[0];
+      const customerWithAllergy = Customer.create({
+        id: baseCustomer.id,
+        userId: baseCustomer.userId,
+        birthDate: baseCustomer.birthDate,
+        hasAllergy: true,
+        createdAt: baseCustomer.createdAt,
+        updatedAt: baseCustomer.updatedAt
+      }, baseCustomer.user);
       
       jest.spyOn(mockCustomerRepository, "findById").mockResolvedValue(customerWithAllergy);
       
@@ -144,11 +179,16 @@ describe("Regras de Negócio para Agendamentos", () => {
       const childBirthDate = new Date();
       childBirthDate.setFullYear(childBirthDate.getFullYear() - 2);
       
-      // Cria um mock de cliente menor de 3 anos
-      const childCustomer: CustomerWithUser = {
-        ...mockCustomerRepository.customers[0],
-        birthDate: childBirthDate
-      };
+      // Criamos um cliente real menor de 3 anos
+      const baseCustomer = mockCustomerRepository.customers[0];
+      const childCustomer = Customer.create({
+        id: baseCustomer.id,
+        userId: baseCustomer.userId,
+        birthDate: childBirthDate,
+        hasAllergy: baseCustomer.hasAllergy,
+        createdAt: baseCustomer.createdAt,
+        updatedAt: baseCustomer.updatedAt
+      }, baseCustomer.user);
       
       jest.spyOn(mockCustomerRepository, "findById").mockResolvedValue(childCustomer);
       
@@ -166,6 +206,26 @@ describe("Regras de Negócio para Agendamentos", () => {
         .rejects
         .toThrow("Não realizamos cortes para crianças menores de 3 anos");
     });
+
+    // Teste específico para verificar o comportamento quando um serviço não é encontrado
+    it("6. Deve lançar erro quando um serviço não é encontrado", async () => {
+      // Anulamos o mock global para usar um comportamento específico neste teste
+      jest.spyOn(mockServiceRepository, "findByIds").mockResolvedValue([]);
+
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 10);
+      
+      const scheduleData = {
+        customerId: "customer-1",
+        barberId: "barber-1",
+        date: futureDate,
+        serviceIds: ["service-inexistente"]
+      };
+      
+      await expect(createScheduleUseCase.execute(scheduleData))
+        .rejects
+        .toThrow("Um ou mais serviços solicitados não foram encontrados");
+    });
   });
 
   // Testes de casos válidos
@@ -182,11 +242,8 @@ describe("Regras de Negócio para Agendamentos", () => {
       // Não há conflito de horário
       jest.spyOn(mockScheduleRepository, "findConflictingSchedules").mockResolvedValue([]);
       
-      // Serviços existentes
-      jest.spyOn(mockServiceRepository, "findByIds").mockResolvedValue(mockServiceRepository.services);
-      
       // Não é feriado
-      (isHoliday as jest.Mock).mockReturnValue(false);
+      isHolidaySpy.mockReturnValue(false);
       
       const scheduleData = {
         customerId: "customer-1",

@@ -1,6 +1,6 @@
 import { CalculateServicePriceUseCase } from "../../../src/domain/usecases/service/CalculateServicePriceUseCase";
 import { MockServiceRepository } from "../../mocks/repositories";
-import { ServiceType, ServicePrices } from "../../../src/domain/entities/Service";
+import { Service, ServiceData, ServiceType, ServicePrices } from "../../../src/domain/entities/Service";
 
 describe("CalculateServicePriceUseCase", () => {
   let calculateServicePriceUseCase: CalculateServicePriceUseCase;
@@ -27,17 +27,19 @@ describe("CalculateServicePriceUseCase", () => {
     const serviceIds = ["service-1"]; // Corte de Cabelo
 
     // Configure o mock para usar o campo type
+    const serviceData: ServiceData = {
+      id: "service-1",
+      name: "Corte de Cabelo",
+      description: "Corte tradicional",
+      price: 45,
+      duration: 30,
+      type: ServiceType.HAIRCUT,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
     jest.spyOn(mockServiceRepository, "findByIds").mockResolvedValue([
-      {
-        id: "service-1",
-        name: "Corte de Cabelo",
-        description: "Corte tradicional",
-        price: 45,
-        duration: 30,
-        type: ServiceType.HAIRCUT,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
+      Service.create(serviceData)
     ]);
 
     // Ação
@@ -52,17 +54,19 @@ describe("CalculateServicePriceUseCase", () => {
     const serviceIds = ["service-2"]; // Barba
 
     // Configure o mock para usar o campo type
+    const serviceData: ServiceData = {
+      id: "service-2",
+      name: "Barba",
+      description: "Modelagem de barba",
+      price: 50,
+      duration: 20,
+      type: ServiceType.BEARD,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
     jest.spyOn(mockServiceRepository, "findByIds").mockResolvedValue([
-      {
-        id: "service-2",
-        name: "Barba",
-        description: "Modelagem de barba",
-        price: 50,
-        duration: 20,
-        type: ServiceType.BEARD,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }
+      Service.create(serviceData)
     ]);
 
     // Ação
@@ -78,7 +82,7 @@ describe("CalculateServicePriceUseCase", () => {
 
     // Configure o mock para usar o campo type
     jest.spyOn(mockServiceRepository, "findByIds").mockResolvedValue([
-      {
+      Service.create({
         id: "service-1",
         name: "Corte de Cabelo",
         description: "Corte tradicional",
@@ -87,8 +91,8 @@ describe("CalculateServicePriceUseCase", () => {
         type: ServiceType.HAIRCUT,
         createdAt: new Date(),
         updatedAt: new Date()
-      },
-      {
+      }),
+      Service.create({
         id: "service-2",
         name: "Barba",
         description: "Modelagem de barba",
@@ -97,7 +101,7 @@ describe("CalculateServicePriceUseCase", () => {
         type: ServiceType.BEARD,
         createdAt: new Date(),
         updatedAt: new Date()
-      }
+      })
     ]);
 
     // Ação
@@ -115,7 +119,7 @@ describe("CalculateServicePriceUseCase", () => {
 
     // Configure o mock para usar um serviço do tipo COMBO
     jest.spyOn(mockServiceRepository, "findByIds").mockResolvedValue([
-      {
+      Service.create({
         id: "service-combo",
         name: "Combo Corte + Barba",
         description: "Combo promocional",
@@ -124,7 +128,7 @@ describe("CalculateServicePriceUseCase", () => {
         type: ServiceType.COMBO,
         createdAt: new Date(),
         updatedAt: new Date()
-      }
+      })
     ]);
 
     // Ação
@@ -140,7 +144,7 @@ describe("CalculateServicePriceUseCase", () => {
 
     // Configure o mock para serviços personalizados
     jest.spyOn(mockServiceRepository, "findByIds").mockResolvedValue([
-      {
+      Service.create({
         id: "service-3",
         name: "Hidratação",
         description: "Tratamento capilar",
@@ -149,8 +153,8 @@ describe("CalculateServicePriceUseCase", () => {
         type: ServiceType.OTHER,
         createdAt: new Date(),
         updatedAt: new Date()
-      },
-      {
+      }),
+      Service.create({
         id: "service-4",
         name: "Coloração",
         description: "Tintura de cabelo",
@@ -159,7 +163,7 @@ describe("CalculateServicePriceUseCase", () => {
         type: ServiceType.OTHER,
         createdAt: new Date(),
         updatedAt: new Date()
-      }
+      })
     ]);
 
     // Ação
@@ -175,7 +179,7 @@ describe("CalculateServicePriceUseCase", () => {
 
     // Configure o mock sem o campo type, usando apenas os nomes
     jest.spyOn(mockServiceRepository, "findByIds").mockResolvedValue([
-      {
+      Service.create({
         id: "service-1",
         name: "Corte de Cabelo",
         description: "Corte tradicional",
@@ -183,8 +187,8 @@ describe("CalculateServicePriceUseCase", () => {
         duration: 30,
         createdAt: new Date(),
         updatedAt: new Date()
-      },
-      {
+      }),
+      Service.create({
         id: "service-2",
         name: "Barba",
         description: "Modelagem de barba",
@@ -192,7 +196,7 @@ describe("CalculateServicePriceUseCase", () => {
         duration: 20,
         createdAt: new Date(),
         updatedAt: new Date()
-      }
+      })
     ]);
 
     // Ação

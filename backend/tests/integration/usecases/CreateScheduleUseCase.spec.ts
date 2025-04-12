@@ -1,12 +1,11 @@
 import { CreateScheduleUseCase } from "../../../src/domain/usecases/schedule/CreateScheduleUseCase";
 import { MockCustomerRepository, MockScheduleRepository, MockServiceRepository } from "../../mocks/repositories";
-import { ScheduleStatus } from "../../../src/domain/entities/Schedule";
-import { isHoliday } from "../../../src/utils/dateUtils";
+import { Schedule, ScheduleStatus } from "../../../src/domain/entities/Schedule";
+import * as dateUtils from "../../../src/utils/dateUtils";
+import { Customer } from "../../../src/domain/entities/Customer";
 
-// Mock da função isHoliday para poder controlar seu comportamento nos testes
-jest.mock("../../../src/utils/dateUtils", () => ({
-  isHoliday: jest.fn().mockReturnValue(false)
-}));
+// Em vez de jest.mock, usamos spyOn direto no objeto dateUtils
+const isHolidaySpy = jest.spyOn(dateUtils, 'isHoliday').mockReturnValue(false);
 
 describe("CreateScheduleUseCase", () => {
   let createScheduleUseCase: CreateScheduleUseCase;
@@ -26,8 +25,13 @@ describe("CreateScheduleUseCase", () => {
     );
 
     // Reseta o mock entre os testes
-    (isHoliday as jest.Mock).mockClear();
-    (isHoliday as jest.Mock).mockReturnValue(false);
+    jest.clearAllMocks();
+    isHolidaySpy.mockReturnValue(false);
+  });
+
+  afterAll(() => {
+    // Restaura os mocks
+    jest.restoreAllMocks();
   });
 
   it("deve criar um agendamento com sucesso", async () => {
@@ -55,7 +59,7 @@ describe("CreateScheduleUseCase", () => {
 
   it("deve rejeitar agendamento em feriado", async () => {
     // Preparação: simula que a data é um feriado
-    (isHoliday as jest.Mock).mockReturnValue(true);
+    isHolidaySpy.mockReturnValue(true);
 
     const futureDate = new Date();
     futureDate.setDate(futureDate.getDate() + 10);
@@ -96,8 +100,8 @@ describe("CreateScheduleUseCase", () => {
     const futureDate = new Date();
     futureDate.setDate(futureDate.getDate() + 10);
     
-    // Simula um agendamento conflitante no repositório
-    jest.spyOn(mockScheduleRepository, "findConflictingSchedules").mockResolvedValue([{
+    // Criamos um Schedule real em vez de apenas um objeto similar
+    const conflictingSchedule = Schedule.create({
       id: "existing-schedule",
       customerId: "another-customer",
       barberId: "barber-1",
@@ -105,7 +109,10 @@ describe("CreateScheduleUseCase", () => {
       status: ScheduleStatus.CONFIRMED,
       createdAt: new Date(),
       updatedAt: new Date()
-    }]);
+    });
+    
+    // Simula um agendamento conflitante no repositório
+    jest.spyOn(mockScheduleRepository, "findConflictingSchedules").mockResolvedValue([conflictingSchedule]);
   
     const scheduleData = {
       customerId: "customer-1",
@@ -142,10 +149,17 @@ describe("CreateScheduleUseCase", () => {
 
   it("deve rejeitar agendamento para cliente com alergia", async () => {
     // Preparação: cliente com alergia
-    jest.spyOn(mockCustomerRepository, "findById").mockResolvedValue({
-      ...mockCustomerRepository.customers[0],
-      hasAllergy: true
-    });
+    const baseCustomer = mockCustomerRepository.customers[0];
+    const customerWithAllergy = Customer.create({
+      id: baseCustomer.id,
+      userId: baseCustomer.userId,
+      birthDate: baseCustomer.birthDate,
+      hasAllergy: true,
+      createdAt: baseCustomer.createdAt,
+      updatedAt: baseCustomer.updatedAt
+    }, baseCustomer.user);
+    
+    jest.spyOn(mockCustomerRepository, "findById").mockResolvedValue(customerWithAllergy);
     
     const futureDate = new Date();
     futureDate.setDate(futureDate.getDate() + 10);
@@ -168,10 +182,17 @@ describe("CreateScheduleUseCase", () => {
     const childBirthDate = new Date();
     childBirthDate.setFullYear(childBirthDate.getFullYear() - 2); // 2 anos atrás
     
-    jest.spyOn(mockCustomerRepository, "findById").mockResolvedValue({
-      ...mockCustomerRepository.customers[0],
-      birthDate: childBirthDate
-    });
+    const baseCustomer = mockCustomerRepository.customers[0];
+    const childCustomer = Customer.create({
+      id: baseCustomer.id,
+      userId: baseCustomer.userId,
+      birthDate: childBirthDate,
+      hasAllergy: baseCustomer.hasAllergy,
+      createdAt: baseCustomer.createdAt,
+      updatedAt: baseCustomer.updatedAt
+    }, baseCustomer.user);
+    
+    jest.spyOn(mockCustomerRepository, "findById").mockResolvedValue(childCustomer);
     
     const futureDate = new Date();
     futureDate.setDate(futureDate.getDate() + 10);
